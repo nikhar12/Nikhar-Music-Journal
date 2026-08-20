@@ -1,0 +1,9 @@
+import { Schema, model, Types } from 'mongoose';
+export type ProviderName = 'spotify' | 'youtube';
+export interface ProviderMetadata { provider: ProviderName; providerId: string; externalUrl: string; artworkUrl?: string; thumbnailUrl?: string; data: Record<string, unknown>; lastSyncedAt: Date; }
+export interface MusicRecordDocument { _id: Types.ObjectId; title: string; album?: string; artists: string[]; genres: string[]; durationMs?: number; releaseDate?: Date; artworkUrl?: string; preferredProvider: ProviderName; providers: ProviderMetadata[]; keywords: string[]; metadataVersion: number; lastMetadataSync?: Date; createdAt: Date; updatedAt: Date; }
+const providerSchema = new Schema<ProviderMetadata>({ provider: { type: String, enum: ['spotify', 'youtube'], required: true }, providerId: { type: String, required: true }, externalUrl: { type: String, default: '' }, artworkUrl: String, thumbnailUrl: String, data: { type: Schema.Types.Mixed, default: {} }, lastSyncedAt: { type: Date, required: true } }, { _id: false });
+const musicRecordSchema = new Schema<MusicRecordDocument>({ title: { type: String, required: true, trim: true }, album: String, artists: { type: [String], default: [] }, genres: { type: [String], default: [] }, durationMs: Number, releaseDate: Date, artworkUrl: String, preferredProvider: { type: String, enum: ['spotify', 'youtube'], required: true }, providers: { type: [providerSchema], validate: (items: ProviderMetadata[]) => items.length > 0 }, keywords: { type: [String], default: [] }, metadataVersion: { type: Number, default: 1 }, lastMetadataSync: Date }, { timestamps: true });
+musicRecordSchema.index({ title: 'text', artists: 'text', album: 'text', genres: 'text', keywords: 'text' });
+musicRecordSchema.index({ 'providers.provider': 1, 'providers.providerId': 1 }, { unique: true });
+export const MusicRecord = model<MusicRecordDocument>('MusicRecord', musicRecordSchema);

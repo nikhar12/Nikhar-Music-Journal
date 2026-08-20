@@ -1,0 +1,28 @@
+import express from 'express';
+import mongoose from 'mongoose';
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import bcrypt from 'bcrypt';
+import { env } from './config/env.js';
+import { User } from './models/User.js';
+import { authRouter } from './routes/auth.js';
+import { libraryRouter } from './routes/library.js';
+import { musicRouter } from './routes/music.js';
+import { searchRouter } from './routes/search.js';
+import { requireAuth } from './middleware/auth.js';
+const app = express();
+app.use(helmet());
+app.use(cors({ origin: env.frontendOrigin, methods: ['GET', 'POST', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.use(express.json({ limit: '1mb' }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 200, standardHeaders: 'draft-8', legacyHeaders: false }));
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.use('/api/auth', authRouter);
+app.use('/api/library', requireAuth, libraryRouter);
+app.use('/api/search', requireAuth, searchRouter);
+app.use('/api/music', requireAuth, musicRouter);
+app.use((error, _req, res, _next) => { if (error instanceof Error && error.name === 'ZodError')
+    return res.status(400).json({ message: 'Invalid request.', details: error.message }); console.error(error); res.status(500).json({ message: 'Something went wrong.' }); });
+async function start() { await mongoose.connect(env.mongoUri); const exists = await User.exists({ username: env.username.toLowerCase() }); if (!exists)
+    await User.create({ username: env.username.toLowerCase(), passwordHash: await bcrypt.hash(env.password, 12) }); app.listen(env.port, () => console.log(`API listening on http://localhost:${env.port}`)); }
+start().catch(error => { console.error(error); process.exit(1); });
